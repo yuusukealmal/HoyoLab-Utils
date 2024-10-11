@@ -31,7 +31,7 @@ const GAMES: &[GAME] = &[
     GAME{name:"原神", domain:"hk4e", biz:"sol", act_id:"e202102251931481"},
     GAME{name:"崩壞三", domain:"public", biz:"mani", act_id:"e202110291205111"},
     GAME{name:"崩壞：星穹鐵道", domain:"public", biz:"luna/os", act_id:"e202303301540311"},
-    GAME{name:"絕區零", domain:"act-nap", biz:"luna/zzz/os", act_id:"e202406031448091"}
+    GAME{name:"絕區零", domain:"public", biz:"luna/zzz/os", act_id:"e202406031448091"}
 ];
 
 fn set_cookies(jar: &Arc<Jar>, url: &Url) {
@@ -46,6 +46,10 @@ fn set_cookies(jar: &Arc<Jar>, url: &Url) {
 
 fn req(method: &Method, game: &GAME) -> serde_json::Value  {
     let jar = Arc::new(Jar::default());
+    let mut headers = header::HeaderMap::new();
+    if game.name == "絕區零" {
+        headers.insert("x-rpc-signgame", header::HeaderValue::from_static("zzz"));
+    }
     let client = reqwest::blocking::Client::builder().cookie_provider(jar.clone()).build().unwrap();
     let url = Url::parse(&format!("https://sg-{}-api.hoyolab.com/event/{}/{}?act_id={}&lang=zh-tw",game.domain, game.biz, method.name, game.act_id)).unwrap();
 
@@ -53,7 +57,7 @@ fn req(method: &Method, game: &GAME) -> serde_json::Value  {
         set_cookies(&jar, &url);
     }
 
-    let r = client.request(reqwest::Method::from_bytes(method.method.as_bytes()).unwrap(),url).send().unwrap();
+    let r = client.request(reqwest::Method::from_bytes(method.method.as_bytes()).unwrap(),url).headers(headers).send().unwrap();
     let json: serde_json::Value = serde_json::from_str(r.text().unwrap().as_str()).unwrap();
 
     json

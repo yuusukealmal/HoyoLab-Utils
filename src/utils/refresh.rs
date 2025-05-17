@@ -1,11 +1,14 @@
 use std::str;
 
 use base64::{engine::general_purpose, Engine};
+use dotenv::dotenv;
 use rand::thread_rng;
 use regex::Regex;
 use reqwest::Client;
 use rsa::{pkcs1v15::Pkcs1v15Encrypt, pkcs8::DecodePublicKey, RsaPublicKey};
 use serde_json::json;
+
+use super::cookie_handle;
 
 fn encrypt(message: &str) -> Result<String, Box<dyn std::error::Error>> {
     let public_key_pem = b"-----BEGIN PUBLIC KEY-----
@@ -69,6 +72,9 @@ pub async fn refresh_token(
         Some(m) => m.as_str().to_string(),
         None => return Err("Failed to get cookie_token_v2".into()),
     };
+
+    cookie_handle::write_env("cookie_token_v2", &cookie_token_v2, ".env")?;
+    dotenv().ok();
 
     Ok(cookie_token_v2)
 }

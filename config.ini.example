@@ -1,0 +1,26 @@
+[GENSHIN] # 原神
+uid = 1234567890
+#  美服 os_usa
+#  歐服 os_euro
+#  亞服 os_asia
+#  台港澳 os_cht
+region = os_asia
+game_biz = hk4e_global
+
+[HKRPG] # 崩壞：星穹鐵道
+uid = 1234567890
+#  美服 prod_official_usa
+#  歐服 prod_official_euro
+#  亞服 prod_official_asia
+#  台港澳 prod_official_cht
+region = prod_official_asia
+game_biz = hkrpg_global
+
+[NAP] # 絕區零
+uid = 1234567890
+#  亞服 prod_gf_jp
+#  美服 prod_gf_usu
+#  歐服 prod_gf_eu
+#  台港澳 prod_gf_sg
+region = prod_gf_jp
+game_biz = nap_global

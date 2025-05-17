@@ -1,0 +1,130 @@
+use std::{collections::HashMap, env};
+
+use reqwest::{
+    self,
+    header::{HeaderMap, HeaderValue, COOKIE},
+};
+use serde_json::{json, Value};
+
+use crate::{
+    structs::structs::{REDEEM_DATA, REDEEM_GAME},
+    utils,
+};
+
+async fn build_cookie_header() -> Result<HeaderValue, Box<dyn std::error::Error>> {
+    let account_mid_v2 = env::var("account_mid_v2")?;
+    let cookie_token_v2 = match env::var("cookie_token_v2") {
+        Ok(token) => token,
+        Err(_) => {
+            let account = env::var("account").expect("account not set in environment");
+            let password = env::var("password").expect("password not set in environment");
+            utils::refresh::refresh_token(&account, &password).await?
+        }
+    };
+    Ok(format!(
+        "account_mid_v2={};cookie_token_v2={}",
+        account_mid_v2, cookie_token_v2
+    )
+    .parse()?)
+}
+
+impl REDEEM_DATA {
+    pub async fn redeem(
+        &self,
+        game: &REDEEM_GAME,
+        game_info: &HashMap<String, Option<String>>,
+        headers: &HeaderMap,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        for attempt in 0..2 {
+            let response = self
+                .send_redeem_request(game, game_info, headers)
+                .await?;
+
+            if response["retcode"].as_i64() == Some(-1071) {
+                if attempt == 0 {
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                    let account = env::var("account")?;
+                    let password = env::var("password")?;
+                    utils::refresh::refresh_token(&account, &password).await?;
+                    continue;
+                }
+            }
+
+            return Ok(response["message"].to_string());
+        }
+
+        Err("Failed to redeem after refreshing cookie".into())
+    }
+
+    async fn send_redeem_request(
+        &self,
+        game: &REDEEM_GAME,
+        game_info: &HashMap<String, Option<String>>,
+        headers: &HeaderMap,
+    ) -> Result<Value, Box<dyn std::error::Error>> {
+        let url = format!(
+            "https://{}.hoyoverse.com/common/apicdkey/api/webExchangeCdkey{}",
+            game.domain,
+            if game.method == "POST" { "Risk" } else { "" }
+        );
+
+        let json = json!({
+            "lang": "zh-tw",
+            "cdkey": self.code,
+            "uid": game_info.get("uid"),
+            "game_biz": game_info.get("game_biz"),
+            "region": game_info.get("region"),
+        });
+
+        let client = reqwest::Client::new();
+        let response = client
+            .request(game.method.parse()?, &url)
+            .headers(headers.clone())
+            .json(&json)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+}
+
+impl REDEEM_GAME {
+    pub async fn get_codes(&self) -> Result<Vec<REDEEM_DATA>, Box<dyn std::error::Error>> {
+        let mut codes = vec![];
+
+        let client = reqwest::Client::new();
+        let url = format!("https://hoyo-codes.seria.moe/codes?game={}", self.name);
+
+        let response = client.get(url).send().await?;
+        let body = response.json::<Value>().await?;
+
+        for code in body["codes"].as_array().unwrap_or(&vec![]) {
+            codes.push(REDEEM_DATA::new(
+                code["code"].as_str().unwrap_or_default().to_string(),
+                code["rewards"].as_str().unwrap_or_default().to_string(),
+            ));
+        }
+        Ok(codes)
+    }
+
+    pub async fn redeem_codes(
+        &self,
+        codes: &mut Vec<REDEEM_DATA>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut headers = HeaderMap::new();
+        headers.insert(COOKIE, build_cookie_header().await?);
+
+        let map = ini!("config.ini");
+        let game_info = map
+            .get(self.name.as_str())
+            .ok_or("Game info not found in config.ini")?;
+
+        for code in codes.iter_mut() {
+            let result = code.redeem(self, game_info, &headers).await?;
+            code.status = Some(result);
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+
+        Ok(())
+    }
+}

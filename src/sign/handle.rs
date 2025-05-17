@@ -1,32 +1,32 @@
 use chrono::{FixedOffset, Utc};
 
 use super::webhook::webhook;
-use crate::structs::structs::GAME;
+use crate::structs::structs::SIGN_GAME;
 
 pub async fn sign() -> Result<(), Box<dyn std::error::Error>> {
-    let games: Vec<GAME> = vec![
-        GAME {
+    let games: Vec<SIGN_GAME> = vec![
+        SIGN_GAME {
             name: String::from("原神"),
             domain: String::from("hk4e"),
             biz: String::from("sol"),
             act_id: String::from("e202102251931481"),
             signgame: String::from("hk4e"),
         },
-        GAME {
+        SIGN_GAME {
             name: String::from("崩壞三"),
             domain: String::from("public"),
             biz: String::from("mani"),
             act_id: String::from("e202110291205111"),
             signgame: String::from("bh3"),
         },
-        GAME {
+        SIGN_GAME {
             name: String::from("崩壞：星穹鐵道"),
             domain: String::from("public"),
             biz: String::from("luna/os"),
             act_id: String::from("e202303301540311"),
             signgame: String::from("hkrpg"),
         },
-        GAME {
+        SIGN_GAME {
             name: String::from("絕區零"),
             domain: String::from("public"),
             biz: String::from("luna/zzz/os"),

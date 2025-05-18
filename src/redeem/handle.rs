@@ -1,4 +1,6 @@
-use crate::structs::structs::REDEEM_GAME;
+use std::fs::File;
+
+use serde_json::Value;
 use crate::structs::structs::RedeemGame;
 
 fn is_missing(value: Option<&Option<String>>) -> bool {
@@ -40,6 +42,23 @@ pub async fn redeem() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut codes = game.get_codes().await?;
         game.redeem_codes(&mut codes).await?;
+
+        let mut json: Value = serde_json::from_reader(File::open("codes.json")?)?;
+
+        let arr = if let Some(arr) = json
+            .get_mut(game.name.as_str())
+            .and_then(Value::as_array_mut)
+        {
+            arr
+        } else {
+            json[game.name.as_str()] = Value::Array(vec![]);
+            json[game.name.as_str()].as_array_mut().unwrap()
+        };
+
+        arr.extend(codes.iter().map(|code| serde_json::to_value(code).unwrap()));
+
+        let file = File::create("codes.json")?;
+        serde_json::to_writer(file, &json)?;
     }
 
     Ok(())

@@ -82,7 +82,11 @@ impl RedeemData {
             .send()
             .await?;
 
-        Ok(response.json().await?)
+        if response.status().is_success() {
+            Ok(response.json().await?)
+        } else {
+            Err(format!("Failed to redeem,Status Code: {}", response.status()).into())
+        }
     }
 }
 
@@ -103,7 +107,6 @@ impl RedeemGame {
             .iter()
             .map(|code| code["cdkey"].as_str().unwrap_or_default().to_string())
             .collect::<Vec<String>>();
-
         for code in body["codes"].as_array().unwrap_or(&vec![]) {
             let (cdkey, reward) = (
                 code["code"].as_str().unwrap_or_default().to_string(),

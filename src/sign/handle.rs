@@ -1,7 +1,5 @@
-use chrono::{FixedOffset, Utc};
-
 use super::webhook::webhook;
-use crate::structs::structs::SignGame;
+use crate::{structs::structs::SignGame, utils::time::get_time};
 
 pub async fn sign() -> Result<(), Box<dyn std::error::Error>> {
     let games: Vec<SignGame> = vec![
@@ -40,11 +38,7 @@ pub async fn sign() -> Result<(), Box<dyn std::error::Error>> {
         result.extend(game.sign().await?);
     }
 
-    let offset = FixedOffset::east_opt(8 * 60 * 60).unwrap();
-    let time = Utc::now()
-        .with_timezone(&offset)
-        .format("%Y-%m-%d %H:%M:%S")
-        .to_string();
+    let time = get_time();
     webhook(&result, &time).await?;
 
     Ok(())

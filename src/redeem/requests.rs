@@ -1,8 +1,8 @@
-use std::{collections::HashMap, env, fs::File};
+use std::{collections::HashMap, env, fs::File, time::Duration};
 
 use reqwest::{
     self,
-    header::{HeaderMap, HeaderValue, COOKIE},
+    header::{HeaderMap, COOKIE},
 };
 use serde_json::{json, Value};
 
@@ -11,21 +11,30 @@ use crate::{
     utils,
 };
 
-async fn build_cookie_header() -> Result<HeaderValue, Box<dyn std::error::Error>> {
+async fn build_cookie_header() -> Result<HeaderMap, Box<dyn std::error::Error>> {
+    let mut headers = HeaderMap::new();
     let account_mid_v2 = env::var("account_mid_v2")?;
     let cookie_token_v2 = match env::var("cookie_token_v2") {
         Ok(token) => token,
         Err(_) => {
-            let account = env::var("account").expect("account not set in environment");
-            let password = env::var("password").expect("password not set in environment");
-            utils::refresh::refresh_token(&account, &password).await?
+            let (account, password) = get_account()?;
+            utils::refresh::refresh_token(&account, &password).await?;
+            env::var("cookie_token_v2")?
         }
     };
-    Ok(format!(
+
+    let cookie = format!(
         "account_mid_v2={};cookie_token_v2={}",
         account_mid_v2, cookie_token_v2
-    )
-    .parse()?)
+    );
+    headers.insert(COOKIE, cookie.parse()?);
+    Ok(headers)
+}
+
+fn get_account() -> Result<(String, String), Box<dyn std::error::Error>> {
+    let account = env::var("account")?;
+    let password = env::var("password")?;
+    Ok((account, password))
 }
 
 impl RedeemData {
@@ -33,25 +42,23 @@ impl RedeemData {
         &self,
         game: &RedeemGame,
         game_info: &HashMap<String, Option<String>>,
-        headers: &HeaderMap,
+        headers: &mut HeaderMap,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        for attempt in 0..2 {
+        let mut retry = true;
+        loop {
             let response = self.send_redeem_request(game, game_info, headers).await?;
 
-            if response["retcode"].as_i64() == Some(-1071) {
-                if attempt == 0 {
-                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                    let account = env::var("account")?;
-                    let password = env::var("password")?;
-                    utils::refresh::refresh_token(&account, &password).await?;
-                    continue;
-                }
+            if response["retcode"].as_i64() == Some(-1071) && retry {
+                retry = false;
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                let (account, password) = get_account()?;
+                utils::refresh::refresh_token(&account, &password).await?;
+                *headers = build_cookie_header().await?;
+                continue;
             }
 
             return Ok(response["message"].to_string());
         }
-
-        Err("Failed to redeem after refreshing cookie".into())
     }
 
     async fn send_redeem_request(
@@ -82,10 +89,13 @@ impl RedeemData {
             .send()
             .await?;
 
-        if response.status().is_success() {
-            Ok(response.json().await?)
+        let status = response.status();
+        let body = response.text().await?;
+
+        if status.is_success() {
+            Ok(serde_json::from_str(&body)?)
         } else {
-            Err(format!("Failed to redeem,Status Code: {}", response.status()).into())
+            Err(format!("Redeem failed ({}): {}", status, body).into())
         }
     }
 }
@@ -123,8 +133,7 @@ impl RedeemGame {
         &self,
         codes: &mut Vec<RedeemData>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut headers = HeaderMap::new();
-        headers.insert(COOKIE, build_cookie_header().await?);
+        let mut headers = build_cookie_header().await?;
 
         let map = ini!("config.ini");
         let game_info = map
@@ -132,7 +141,7 @@ impl RedeemGame {
             .ok_or("Game info not found in config.ini")?;
 
         for code in codes.iter_mut() {
-            let result = code.redeem(self, game_info, &headers).await?;
+            let result = code.redeem(self, game_info, &mut headers).await?;
             code.status = Some(result);
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }

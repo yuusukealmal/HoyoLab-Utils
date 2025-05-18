@@ -1,7 +1,6 @@
 use std::str;
 
 use base64::{engine::general_purpose, Engine};
-use dotenv::dotenv;
 use rand::thread_rng;
 use regex::Regex;
 use reqwest::Client;
@@ -31,7 +30,7 @@ KSQP4sM0mZvQ1Sr4UcACVcYgYnCbTZMWhJTWkrNXqI8TMomekgny3y+d6NX/cFa6
 pub async fn refresh_token(
     account: &str,
     password: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error>> {
     let headers = json!(        {
         "x-rpc-app_id": "c9oqaq3s3gu8",
         "x-rpc-client_type": "4",
@@ -74,7 +73,7 @@ pub async fn refresh_token(
     };
 
     cookie_handle::write_env("cookie_token_v2", &cookie_token_v2, ".env")?;
-    dotenv().ok();
+    std::env::set_var("cookie_token_v2", &cookie_token_v2);
 
-    Ok(cookie_token_v2)
+    Ok(())
 }

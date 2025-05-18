@@ -57,7 +57,6 @@ impl RedeemData {
                     *headers = build_cookie_header().await?;
                     continue;
                 }
-                return Err(format!("❌ Redeem failed ({})", response["message"]).into());
             }
 
             return Ok(response["message"].to_string());

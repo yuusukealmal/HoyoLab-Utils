@@ -59,7 +59,17 @@ pub async fn redeem() -> Result<(), Box<dyn std::error::Error>> {
                 json[game.name.as_str()].as_array_mut().unwrap()
             };
 
-            arr.extend(codes.iter().map(|code| serde_json::to_value(code).unwrap()));
+            for code in &codes {
+                let code_value = serde_json::to_value(code).unwrap();
+                let cdkey = &code.cdkey;
+
+                if let Some(existing) = arr.iter_mut().find(|v| v["cdkey"].as_str() == Some(cdkey))
+                {
+                    *existing = code_value;
+                } else {
+                    arr.push(code_value);
+                }
+            }
 
             serde_json::to_writer(File::create(path)?, &json)?;
 

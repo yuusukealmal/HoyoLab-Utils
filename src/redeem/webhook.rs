@@ -22,7 +22,13 @@ impl RedeemGame {
                     "fields": codes.iter().map(|code| {
                         serde_json::json!({
                             "name": format!("**{}**", code.cdkey),
-                            "value": format!("`{}`", if code.reward.is_empty() { "Reward Not Displayed" } else { &code.reward }),
+                            "value": format!("`{}`", if code.status.as_ref().unwrap().contains("❌ Redeem failed") {
+                                code.status.as_ref().unwrap().clone()
+                            } else if code.reward.is_empty() {
+                                "Reward Not Displayed".to_string()
+                            } else {
+                                code.reward.clone()
+                            }),
                             "inline": false
                         })
                     }).collect::<Vec<_>>()

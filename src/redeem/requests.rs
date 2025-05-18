@@ -48,13 +48,16 @@ impl RedeemData {
         loop {
             let response = self.send_redeem_request(game, game_info, headers).await?;
 
-            if response["retcode"].as_i64() == Some(-1071) && retry {
-                retry = false;
-                tokio::time::sleep(Duration::from_secs(5)).await;
-                let (account, password) = get_account()?;
-                utils::refresh::refresh_token(&account, &password).await?;
-                *headers = build_cookie_header().await?;
-                continue;
+            if response["retcode"].as_i64() == Some(-1071) {
+                if retry {
+                    retry = false;
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    let (account, password) = get_account()?;
+                    utils::refresh::refresh_token(&account, &password).await?;
+                    *headers = build_cookie_header().await?;
+                    continue;
+                }
+                return Err(format!("❌ Redeem failed ({})", response["message"]).into());
             }
 
             return Ok(response["message"].to_string());
@@ -95,7 +98,7 @@ impl RedeemData {
         if status.is_success() {
             Ok(serde_json::from_str(&body)?)
         } else {
-            Err(format!("Redeem failed ({}): {}", status, body).into())
+            Err(format!("❌ Redeem failed ({})", status).into())
         }
     }
 }
@@ -111,18 +114,28 @@ impl RedeemGame {
         let body = response.json::<Value>().await?;
 
         let json: Value = serde_json::from_reader(File::open("codes.json")?)?;
-        let redeemed = json[self.name.as_str()]
+        let redeemed: HashMap<String, String> = json[self.name.as_str()]
             .as_array()
             .unwrap()
             .iter()
-            .map(|code| code["cdkey"].as_str().unwrap_or_default().to_string())
-            .collect::<Vec<String>>();
-        for code in body["codes"].as_array().unwrap_or(&vec![]) {
-            let (cdkey, reward) = (
-                code["code"].as_str().unwrap_or_default().to_string(),
-                code["rewards"].as_str().unwrap_or_default().to_string(),
-            );
-            if !redeemed.contains(&cdkey) {
+            .filter_map(|code| {
+                Some((
+                    code["cdkey"].as_str()?.to_string(),
+                    code["status"].as_str().unwrap_or("").to_string(),
+                ))
+            })
+            .collect();
+
+        for code in body["codes"].as_array().unwrap(){
+            let cdkey = code["code"].as_str().unwrap_or_default().to_string();
+            let reward = code["rewards"].as_str().unwrap_or_default().to_string();
+
+            let judege = match redeemed.get(&cdkey) {
+                None => true,
+                Some(status) => status.contains("❌ Redeem failed"),
+            };
+
+            if judege {
                 codes.push(RedeemData::new(cdkey, reward));
             }
         }
@@ -141,9 +154,12 @@ impl RedeemGame {
             .ok_or("Game info not found in config.ini")?;
 
         for code in codes.iter_mut() {
-            let result = code.redeem(self, game_info, &mut headers).await?;
+            let result = match code.redeem(self, game_info, &mut headers).await {
+                Ok(result) => result,
+                Err(e) => e.to_string(),
+            };
             code.status = Some(result);
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            tokio::time::sleep(Duration::from_secs(5)).await;
         }
 
         Ok(())

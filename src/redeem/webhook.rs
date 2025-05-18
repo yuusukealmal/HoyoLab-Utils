@@ -13,7 +13,7 @@ impl RedeemGame {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let webhook_url = env::var("webhook_url").expect("webhook not set in environment");
         let data = serde_json::json!({
-            "content": format!("<@{}> Finish Redeem For {} At {}", env::var("userid").expect("user_id not set in environment"), self.name, time),
+            "content": format!("<@{}> Finish Redeem For {} At `{}`", env::var("userid").expect("user_id not set in environment"), self.name, time),
             "embeds":
             [
                 {

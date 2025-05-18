@@ -1,4 +1,5 @@
 use crate::structs::structs::REDEEM_GAME;
+use crate::structs::structs::RedeemGame;
 
 fn is_missing(value: Option<&Option<String>>) -> bool {
     value
@@ -8,17 +9,17 @@ fn is_missing(value: Option<&Option<String>>) -> bool {
 
 pub async fn redeem() -> Result<(), Box<dyn std::error::Error>> {
     let games = vec![
-        REDEEM_GAME {
+        RedeemGame {
             name: "genshin".to_string(),
             domain: "sg-hk4e-api".to_string(),
             method: "GET".to_string(),
         },
-        REDEEM_GAME {
+        RedeemGame {
             name: "hkrpg".to_string(),
             domain: "public-operation-hkrpg".to_string(),
             method: "POST".to_string(),
         },
-        REDEEM_GAME {
+        RedeemGame {
             name: "nap".to_string(),
             domain: "public-operation-nap".to_string(),
             method: "POST".to_string(),

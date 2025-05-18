@@ -7,7 +7,7 @@ use reqwest::{
 use serde_json::{json, Value};
 
 use crate::{
-    structs::structs::{REDEEM_DATA, REDEEM_GAME},
+    structs::structs::{RedeemData, RedeemGame},
     utils,
 };
 
@@ -28,10 +28,10 @@ async fn build_cookie_header() -> Result<HeaderValue, Box<dyn std::error::Error>
     .parse()?)
 }
 
-impl REDEEM_DATA {
+impl RedeemData {
     pub async fn redeem(
         &self,
-        game: &REDEEM_GAME,
+        game: &RedeemGame,
         game_info: &HashMap<String, Option<String>>,
         headers: &HeaderMap,
     ) -> Result<String, Box<dyn std::error::Error>> {
@@ -56,7 +56,7 @@ impl REDEEM_DATA {
 
     async fn send_redeem_request(
         &self,
-        game: &REDEEM_GAME,
+        game: &RedeemGame,
         game_info: &HashMap<String, Option<String>>,
         headers: &HeaderMap,
     ) -> Result<Value, Box<dyn std::error::Error>> {
@@ -68,7 +68,7 @@ impl REDEEM_DATA {
 
         let json = json!({
             "lang": "zh-tw",
-            "cdkey": self.code,
+            "cdkey": self.cdkey,
             "uid": game_info.get("uid"),
             "game_biz": game_info.get("game_biz"),
             "region": game_info.get("region"),
@@ -86,8 +86,8 @@ impl REDEEM_DATA {
     }
 }
 
-impl REDEEM_GAME {
-    pub async fn get_codes(&self) -> Result<Vec<REDEEM_DATA>, Box<dyn std::error::Error>> {
+impl RedeemGame {
+    pub async fn get_codes(&self) -> Result<Vec<RedeemData>, Box<dyn std::error::Error>> {
         let mut codes = vec![];
 
         let client = reqwest::Client::new();
@@ -101,16 +101,16 @@ impl REDEEM_GAME {
             .as_array()
             .unwrap()
             .iter()
-            .map(|code| code["code"].as_str().unwrap_or_default().to_string())
+            .map(|code| code["cdkey"].as_str().unwrap_or_default().to_string())
             .collect::<Vec<String>>();
 
         for code in body["codes"].as_array().unwrap_or(&vec![]) {
-            let (code, rewards) = (
+            let (cdkey, reward) = (
                 code["code"].as_str().unwrap_or_default().to_string(),
                 code["rewards"].as_str().unwrap_or_default().to_string(),
             );
-            if !redeemed.contains(&code) {
-                codes.push(REDEEM_DATA::new(code, rewards));
+            if !redeemed.contains(&cdkey) {
+                codes.push(RedeemData::new(cdkey, reward));
             }
         }
         Ok(codes)
@@ -118,7 +118,7 @@ impl REDEEM_GAME {
 
     pub async fn redeem_codes(
         &self,
-        codes: &mut Vec<REDEEM_DATA>,
+        codes: &mut Vec<RedeemData>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut headers = HeaderMap::new();
         headers.insert(COOKIE, build_cookie_header().await?);

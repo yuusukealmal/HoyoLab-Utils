@@ -1,10 +1,10 @@
-pub struct SIGN_METHOD {
+pub struct SignMethod {
     pub name: String,
     pub method: String,
     pub cookie: i32,
 }
 
-pub struct SIGN_GAME {
+pub struct SignGame {
     pub name: String,
     pub domain: String,
     pub biz: String,
@@ -12,22 +12,23 @@ pub struct SIGN_GAME {
     pub signgame: String,
 }
 
-pub struct REDEEM_GAME {
+pub struct RedeemGame {
     pub name: String,
     pub domain: String,
     pub method: String,
 }
 
-pub struct REDEEM_DATA {
-    pub code: String,
+#[derive(serde::Serialize, Debug)]
+pub struct RedeemData {
+    pub cdkey: String,
     pub reward: String,
     pub status: Option<String>,
 }
 
-impl REDEEM_DATA {
+impl RedeemData {
     pub fn new(code: String, reward: String) -> Self {
         Self {
-            code,
+            cdkey: code,
             reward,
             status: None,
         }

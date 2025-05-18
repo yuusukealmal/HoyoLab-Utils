@@ -2,10 +2,10 @@ use std::env;
 
 use reqwest::header::{self, COOKIE};
 
-use crate::structs::structs::{SIGN_GAME, SIGN_METHOD};
+use crate::structs::structs::{SignGame, SignMethod};
 
-impl SIGN_METHOD {
-    async fn req(&self, game: &SIGN_GAME) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+impl SignMethod {
+    async fn req(&self, game: &SignGame) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
         let url = format!(
             "https://sg-{}-api.hoyolab.com/event/{}/{}?act_id={}&lang=zh-tw",
             game.domain, game.biz, self.name, game.act_id
@@ -33,22 +33,22 @@ impl SIGN_METHOD {
     }
 }
 
-impl SIGN_GAME {
+impl SignGame {
     pub async fn sign(&self) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error>> {
         let mut result: Vec<serde_json::Value> = vec![];
 
-        let methods: Vec<SIGN_METHOD> = vec![
-            SIGN_METHOD {
+        let methods: Vec<SignMethod> = vec![
+            SignMethod {
                 name: String::from("sign"),
                 method: String::from("POST"),
                 cookie: 1,
             },
-            SIGN_METHOD {
+            SignMethod {
                 name: String::from("info"),
                 method: String::from("GET"),
                 cookie: 1,
             },
-            SIGN_METHOD {
+            SignMethod {
                 name: String::from("home"),
                 method: String::from("GET"),
                 cookie: 0,

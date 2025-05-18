@@ -25,9 +25,9 @@ impl RedeemGame {
                             "value": if code.status.as_ref().unwrap().contains("❌ Redeem failed") {
                                 format!("`{}`", code.status.as_ref().unwrap())
                             } else if code.reward.is_empty() {
-                                format!("`Reward Not Displayed`\n{}", code.status.as_ref().unwrap())
+                                format!("`Reward Not Displayed`\n`{}`", code.status.as_ref().unwrap())
                             } else {
-                                format!("`{}`\n{}", code.reward, code.status.as_ref().unwrap())
+                                format!("`{}`\n`{}`", code.reward, code.status.as_ref().unwrap())
                             },
                             "inline": false
                         })

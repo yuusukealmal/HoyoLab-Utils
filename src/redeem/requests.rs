@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, fs::File};
 
 use reqwest::{
     self,
@@ -36,9 +36,7 @@ impl REDEEM_DATA {
         headers: &HeaderMap,
     ) -> Result<String, Box<dyn std::error::Error>> {
         for attempt in 0..2 {
-            let response = self
-                .send_redeem_request(game, game_info, headers)
-                .await?;
+            let response = self.send_redeem_request(game, game_info, headers).await?;
 
             if response["retcode"].as_i64() == Some(-1071) {
                 if attempt == 0 {
@@ -98,11 +96,22 @@ impl REDEEM_GAME {
         let response = client.get(url).send().await?;
         let body = response.json::<Value>().await?;
 
+        let json: Value = serde_json::from_reader(File::open("codes.json")?)?;
+        let redeemed = json[self.name.as_str()]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|code| code["code"].as_str().unwrap_or_default().to_string())
+            .collect::<Vec<String>>();
+
         for code in body["codes"].as_array().unwrap_or(&vec![]) {
-            codes.push(REDEEM_DATA::new(
+            let (code, rewards) = (
                 code["code"].as_str().unwrap_or_default().to_string(),
                 code["rewards"].as_str().unwrap_or_default().to_string(),
-            ));
+            );
+            if !redeemed.contains(&code) {
+                codes.push(REDEEM_DATA::new(code, rewards));
+            }
         }
         Ok(codes)
     }

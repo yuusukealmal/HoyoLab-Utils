@@ -1,6 +1,8 @@
 use std::fs::File;
 
+use chrono::{FixedOffset, Utc};
 use serde_json::Value;
+
 use crate::structs::structs::RedeemGame;
 
 fn is_missing(value: Option<&Option<String>>) -> bool {
@@ -41,24 +43,34 @@ pub async fn redeem() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let mut codes = game.get_codes().await?;
-        game.redeem_codes(&mut codes).await?;
 
-        let mut json: Value = serde_json::from_reader(File::open("codes.json")?)?;
+        if !codes.is_empty() {
+            game.redeem_codes(&mut codes).await?;
 
-        let arr = if let Some(arr) = json
-            .get_mut(game.name.as_str())
-            .and_then(Value::as_array_mut)
-        {
-            arr
-        } else {
-            json[game.name.as_str()] = Value::Array(vec![]);
-            json[game.name.as_str()].as_array_mut().unwrap()
-        };
+            let mut json: Value = serde_json::from_reader(File::open("codes.json")?)?;
 
-        arr.extend(codes.iter().map(|code| serde_json::to_value(code).unwrap()));
+            let arr = if let Some(arr) = json
+                .get_mut(game.name.as_str())
+                .and_then(Value::as_array_mut)
+            {
+                arr
+            } else {
+                json[game.name.as_str()] = Value::Array(vec![]);
+                json[game.name.as_str()].as_array_mut().unwrap()
+            };
 
-        let file = File::create("codes.json")?;
-        serde_json::to_writer(file, &json)?;
+            arr.extend(codes.iter().map(|code| serde_json::to_value(code).unwrap()));
+
+            let file = File::create("codes.json")?;
+            serde_json::to_writer(file, &json)?;
+
+            let offset = FixedOffset::east_opt(8 * 60 * 60).unwrap();
+            let time = Utc::now()
+                .with_timezone(&offset)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string();
+            game.webhook(&codes, &time).await?;
+        }
     }
 
     Ok(())

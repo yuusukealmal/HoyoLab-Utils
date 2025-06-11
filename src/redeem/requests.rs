@@ -11,17 +11,21 @@ use crate::{
     utils,
 };
 
-async fn build_cookie_header() -> Result<HeaderMap, Box<dyn std::error::Error>> {
-    let mut headers = HeaderMap::new();
-    let account_mid_v2 = env::var("account_mid_v2")?;
-    let cookie_token_v2 = match env::var("cookie_token_v2") {
-        Ok(token) => token,
+async fn get_or_refresh_token() -> Result<String, Box<dyn std::error::Error>> {
+    match env::var("cookie_token_v2") {
+        Ok(token) => Ok(token),
         Err(_) => {
             let (account, password) = get_account()?;
             utils::refresh::refresh_token(&account, &password).await?;
-            env::var("cookie_token_v2")?
+            Ok(env::var("cookie_token_v2")?)
         }
-    };
+    }
+}
+
+async fn build_cookie_header() -> Result<HeaderMap, Box<dyn std::error::Error>> {
+    let mut headers = HeaderMap::new();
+    let account_mid_v2 = env::var("account_mid_v2")?;
+    let cookie_token_v2 = get_or_refresh_token().await?;
 
     let cookie = format!(
         "account_mid_v2={};cookie_token_v2={}",
@@ -37,6 +41,7 @@ fn get_account() -> Result<(String, String), Box<dyn std::error::Error>> {
     Ok((account, password))
 }
 
+const TOKEN_EXPIRED_RETCODE: i64 = -1071;
 impl RedeemData {
     pub async fn redeem(
         &self,
@@ -44,22 +49,30 @@ impl RedeemData {
         game_info: &HashMap<String, Option<String>>,
         headers: &mut HeaderMap,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let mut retry = true;
+        let mut retried = false;
+
         loop {
             let response = self.send_redeem_request(game, game_info, headers).await?;
 
-            if response["retcode"].as_i64() == Some(-1071) {
-                if retry {
-                    retry = false;
+            match response["retcode"].as_i64() {
+                Some(TOKEN_EXPIRED_RETCODE) if !retried => {
+                    retried = true;
+                    eprintln!("⚠️ Token expired. Attempting refresh...");
                     tokio::time::sleep(Duration::from_secs(5)).await;
+
                     let (account, password) = get_account()?;
                     utils::refresh::refresh_token(&account, &password).await?;
                     *headers = build_cookie_header().await?;
                     continue;
                 }
+                _ => {
+                    println!("{}", response["message"]);
+                    return Ok(response["message"]
+                        .as_str()
+                        .unwrap_or("未知錯誤")
+                        .to_string());
+                }
             }
-
-            return Ok(response["message"].to_string());
         }
     }
 
@@ -69,27 +82,48 @@ impl RedeemData {
         game_info: &HashMap<String, Option<String>>,
         headers: &HeaderMap,
     ) -> Result<Value, Box<dyn std::error::Error>> {
+        let uid = game_info
+            .get("uid")
+            .and_then(|v| v.clone())
+            .unwrap_or_default();
+        let game_biz = game_info
+            .get("game_biz")
+            .and_then(|v| v.clone())
+            .unwrap_or_default();
+        let region = game_info
+            .get("region")
+            .and_then(|v| v.clone())
+            .unwrap_or_default();
         let url = format!(
             "https://{}.hoyoverse.com/common/apicdkey/api/webExchangeCdkey{}",
             game.domain,
             if game.method == "POST" { "Risk" } else { "" }
         );
 
-        let json = json!({
-            "lang": "zh-tw",
-            "cdkey": self.cdkey,
-            "uid": game_info.get("uid"),
-            "game_biz": game_info.get("game_biz"),
-            "region": game_info.get("region"),
-        });
-
         let client = reqwest::Client::new();
-        let response = client
+        let request = client
             .request(game.method.parse()?, &url)
-            .headers(headers.clone())
-            .json(&json)
-            .send()
-            .await?;
+            .headers(headers.clone());
+
+        let response = if game.method == "GET" {
+            let query = [
+                ("lang", "zh-tw"),
+                ("cdkey", &self.cdkey),
+                ("uid", &uid),
+                ("game_biz", &game_biz),
+                ("region", &region),
+            ];
+            request.query(&query).send().await?
+        } else {
+            let json = json!({
+                "lang": "zh-tw",
+                "cdkey": self.cdkey,
+                "uid": uid,
+                "game_biz": game_biz,
+                "region": region,
+            });
+            request.json(&json).send().await?
+        };
 
         let status = response.status();
         let body = response.text().await?;
@@ -97,7 +131,7 @@ impl RedeemData {
         if status.is_success() {
             Ok(serde_json::from_str(&body)?)
         } else {
-            Err(format!("❌ Redeem failed ({})", status).into())
+            Err(format!("❌ Redeem failed {}: {}", status, body).into())
         }
     }
 }
@@ -125,7 +159,7 @@ impl RedeemGame {
             })
             .collect();
 
-        for code in body["codes"].as_array().unwrap(){
+        for code in body["codes"].as_array().unwrap() {
             let cdkey = code["code"].as_str().unwrap_or_default().to_string();
             let reward = code["rewards"].as_str().unwrap_or_default().to_string();
 

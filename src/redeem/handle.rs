@@ -14,7 +14,7 @@ pub async fn redeem() -> Result<(), Box<dyn std::error::Error>> {
     let games = vec![
         RedeemGame {
             name: "genshin".to_string(),
-            domain: "public-operation-hk4e".to_string(),
+            domain: "sg-hk4e-api".to_string(),
             method: "GET".to_string(),
         },
         RedeemGame {

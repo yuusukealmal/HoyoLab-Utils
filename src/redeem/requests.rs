@@ -144,8 +144,15 @@ impl RedeemGame {
         let url = format!("https://hoyo-codes.seria.moe/codes?game={}", self.name);
 
         let response = client.get(url).send().await?;
-        let body = response.json::<Value>().await?;
+        let status = response.status();
 
+        let body = response.text().await?;
+        if !status.is_success() {
+            println!("請求失敗，HTTP 狀態碼: {}", status);
+            return Ok(codes);
+        }
+
+        let body: Value = serde_json::from_str(&body)?;
         let json: Value = serde_json::from_reader(File::open("codes.json")?)?;
         let redeemed: HashMap<String, String> = json[self.name.as_str()]
             .as_array()

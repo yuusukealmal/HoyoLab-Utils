@@ -63,17 +63,21 @@ pub async fn refresh_token(
         .send()
         .await?;
 
-    let cookie_regex = Regex::new(r"cookie_token_v2=([^;]+)")?
-        .captures(response.headers().get("Set-Cookie").unwrap().to_str()?)
-        .unwrap();
+    let cookie_regex = Regex::new(r"cookie_token_v2=([^;]+)").unwrap();
 
-    let cookie_token_v2 = match cookie_regex.get(1) {
-        Some(m) => m.as_str().to_string(),
-        None => return Err("Failed to get cookie_token_v2".into()),
-    };
-
-    cookie_handle::write_env("cookie_token_v2", &cookie_token_v2, ".env")?;
-    std::env::set_var("cookie_token_v2", &cookie_token_v2);
+    for value in response.headers().get_all("Set-Cookie") {
+        let value_str = value.to_str()?;
+        if value_str.contains("cookie_token_v2") {
+            if let Some(caps) = cookie_regex.captures(value_str) {
+                if let Some(token) = caps.get(1) {
+                    let cookie_token_v2 = token.as_str().to_string();
+                    cookie_handle::set_env("cookie_token_v2", &cookie_token_v2, ".env")?;
+                    std::env::set_var("cookie_token_v2", &cookie_token_v2);
+                    break;
+                }
+            }
+        }
+    }
 
     Ok(())
 }

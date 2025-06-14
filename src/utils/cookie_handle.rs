@@ -1,20 +1,37 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::{
+    fs,
+    io::{self, Write},
+    path::Path,
+};
 
-pub fn write_env(key: &str, value: &str, env_path: &str) -> std::io::Result<()> {
-    let mut lines = Vec::new();
-    if let Ok(file) = std::fs::File::open(env_path) {
-        for line in BufReader::new(file).lines() {
-            let l = line?;
-            if !l.trim_start().starts_with(&format!("{}=", key)) {
-                lines.push(l);
-            }
+pub fn set_env(key: &str, value: &str, path: &str) -> io::Result<()> {
+    let path = Path::new(path);
+    let mut lines = if path.exists() {
+        fs::read_to_string(path)?
+            .lines()
+            .map(|l| l.to_string())
+            .collect::<Vec<String>>()
+    } else {
+        vec![]
+    };
+
+    let mut found = false;
+    for line in &mut lines {
+        if line.starts_with(&format!("{} = ", key)) {
+            *line = format!("{} = {}", key, value);
+            found = true;
+            break;
         }
     }
-    lines.push(format!("{} = {}", key, value));
-    let mut file = File::create(env_path)?;
-    for l in lines {
-        writeln!(file, "{}", l)?;
+
+    if !found {
+        lines.push(format!("{} = {}", key, value));
     }
+
+    let mut file = fs::File::create(path)?;
+    for line in lines {
+        writeln!(file, "{}", line)?;
+    }
+
     Ok(())
 }

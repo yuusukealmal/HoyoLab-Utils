@@ -69,7 +69,7 @@ impl SignGame {
             let rewards = sign_data["awards"][is_sign as usize - 1]
                 .as_object()
                 .unwrap();
-            let total_days = sign_rewards["awards"].as_array().unwrap().len();
+            let total_days = sign_rewards["data"]["awards"].as_array().unwrap().len();
             result.push(serde_json::json!({"name": format!("{} {} / {}", self.name, is_sign, total_days), "value": format!("`{}` x{}", rewards["name"], rewards["cnt"]) }));
         }
 

@@ -2,7 +2,7 @@ use std::{collections::HashMap, env, fs::File, time::Duration};
 
 use reqwest::{
     self,
-    header::{HeaderMap, COOKIE},
+    header::{HeaderMap, COOKIE, REFERER, USER_AGENT},
 };
 use serde_json::{json, Value};
 
@@ -66,11 +66,12 @@ impl RedeemData {
                     continue;
                 }
                 _ => {
-                    println!("{}", response["message"]);
-                    return Ok(response["message"]
+                    let message = response["message"]
                         .as_str()
                         .unwrap_or("未知錯誤")
-                        .to_string());
+                        .to_string();
+                    println!("{}", message);
+                    return Ok(message);
                 }
             }
         }
@@ -141,6 +142,9 @@ impl RedeemGame {
         let mut codes = vec![];
 
         let client = reqwest::Client::new();
+        let mut headers = HeaderMap::new();
+        headers.insert(USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36".parse()?);
+        headers.insert(REFERER, "https://hoyo-codes.seria.moe/".parse()?);
         let url = format!("https://hoyo-codes.seria.moe/codes?game={}", self.name);
 
         let response = client.get(url).send().await?;

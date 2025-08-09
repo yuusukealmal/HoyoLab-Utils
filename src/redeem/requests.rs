@@ -142,8 +142,8 @@ impl RedeemGame {
 
         let client = reqwest::Client::new();
         let mut headers = HeaderMap::new();
-        headers.insert(USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36".parse()?);
-        headers.insert(REFERER, "https://hoyo-codes.seria.moe/".parse()?);
+        headers.insert(USER_AGENT, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36".parse()?);
+        headers.insert(REFERER, "https://www.google.com/".parse()?);
         let url = format!("https://hoyo-codes.seria.moe/codes?game={}", self.name);
 
         let response = client.get(url).send().await?;

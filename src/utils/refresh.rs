@@ -40,6 +40,7 @@ pub async fn refresh_token(
         "x-rpc-referrer": "https://www.hoyolab.com",
         "Origin": "https://account.hoyolab.com",
         "Referer": "https://account.hoyolab.com/",
+        "x-rpc-device_id": "9e6085ef-dd58-4880-aebd-ded5c5bcb8eb"
     });
 
     let json = json!({

@@ -6,10 +6,8 @@ use reqwest::{
 };
 use serde_json::{json, Value};
 
-use crate::{
-    structs::structs::{RedeemData, RedeemGame},
-    utils,
-};
+use crate::structs::structs::{RedeemData, RedeemGame};
+use crate::utils::{self, time::get_time};
 
 async fn get_or_refresh_token() -> Result<String, Box<dyn std::error::Error>> {
     match env::var("cookie_token_v2") {
@@ -70,7 +68,8 @@ impl RedeemData {
                         .as_str()
                         .unwrap_or("未知錯誤")
                         .to_string();
-                    println!("{}", message);
+                    let time = get_time();
+                    println!("{} - {} - {} - {}", time, game.name, self.cdkey, message);
                     return Ok(message);
                 }
             }

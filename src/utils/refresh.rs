@@ -65,6 +65,15 @@ pub async fn refresh_token(
         .send()
         .await?;
 
+    if !response.status().is_success() {
+        return Err(format!(
+            "❌ Refresh token failed {}: {}",
+            response.status(),
+            response.text().await?
+        )
+        .into());
+    }
+
     let cookie_regex = Regex::new(r"cookie_token_v2=([^;]+)").unwrap();
 
     for value in response.headers().get_all("Set-Cookie") {

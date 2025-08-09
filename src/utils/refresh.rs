@@ -8,6 +8,7 @@ use rsa::{pkcs1v15::Pkcs1v15Encrypt, pkcs8::DecodePublicKey, RsaPublicKey};
 use serde_json::json;
 
 use super::cookie_handle;
+use super::random;
 
 fn encrypt(message: &str) -> Result<String, Box<dyn std::error::Error>> {
     let public_key_pem = b"-----BEGIN PUBLIC KEY-----
@@ -40,7 +41,7 @@ pub async fn refresh_token(
         "x-rpc-referrer": "https://www.hoyolab.com",
         "Origin": "https://account.hoyolab.com",
         "Referer": "https://account.hoyolab.com/",
-        "x-rpc-device_id": "9e6085ef-dd58-4880-aebd-ded5c5bcb8eb"
+        "x-rpc-device_id": random::random_device_id(),
     });
 
     let json = json!({
